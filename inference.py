@@ -13,7 +13,6 @@ def main(args):
     # 推論するデータの読み込み
     path = pathlib.Path(f"{args.input_path}")
     all_image_paths = [item.resolve() for item in path.glob("**/*") if item.is_file()]
-    print(all_image_paths[:10])
     all_images = np.array(
         [
             img_as_float(io.imread(path, as_gray=True))[:, :, np.newaxis]
@@ -56,7 +55,7 @@ def main(args):
 if __name__ == "__main__":
     # コマンドライン引数の設定
     parser = argparse.ArgumentParser(description="aqualium demo")
-    parser.add_argument("--input_path", default="/kqi/input")
+    parser.add_argument("--input_path", default="/kqi/input/images")
     parser.add_argument("--model_saved_path", default="/kqi/parent")
     parser.add_argument("--output_path", default="/kqi/output/demo")
     parser.add_argument("--log_path", default="/kqi/output/logs")
