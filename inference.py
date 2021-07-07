@@ -22,12 +22,12 @@ def main(args):
 
     # ラベル情報の読み込み
     with open(
-        glob.glob(f"{args.model_saved_path}/**/demo/label_idx.pkl")[0], "br"
+        glob.glob(f"{args.model_saved_path}/demo/label_idx.pkl")[0], "br"
     ) as f:
         label_index = pickle.load(f)
 
     # モデルの読み込み
-    model_path = glob.glob(f"{args.model_saved_path}/**/demo/params")[0]
+    model_path = glob.glob(f"{args.model_saved_path}/demo/params")[0]
     model = tf.keras.models.load_model(model_path)
 
     # 予測
