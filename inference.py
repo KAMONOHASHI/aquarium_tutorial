@@ -33,9 +33,6 @@ def main(args):
     # 予測
     y_pred = np.argmax(model.predict(all_images), axis=-1)
 
-    print(y_pred)
-    print(label_index)
-
     # tensorboard への画像の出力
     writer = tf.summary.create_file_writer(f"{args.log_path}/images")
     for image_idx in range(len(all_image_paths)):
@@ -43,8 +40,6 @@ def main(args):
             key for key, val in label_index.items() if val == y_pred[image_idx]
         ]
         title = f"{str(all_image_paths[image_idx]).split('/')[-1]}:predicted {predicted_label}"
-
-        print(image_idx, title)
 
         with writer.as_default():
             tf.summary.image(
