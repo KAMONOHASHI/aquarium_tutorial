@@ -5,120 +5,25 @@ import glob
 import os
 import pickle
 
-import numpy as np
-import pandas as pd
-import tensorflow as tf
-from skimage import io, transform
-from sklearn.metrics import confusion_matrix
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, TensorBoard
-from tensorflow.keras.layers import Conv2D, Dense, Dropout, Flatten, MaxPool2D
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.optimizers import Adam
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from trainer import train
+from config import validation_rate
 
 
-def build_model(num_class) -> Sequential:
-    # モデルの構築
-    model = Sequential()
-    model.add(Conv2D(32, (3, 3), input_shape=(28, 28, 1), activation="relu"))
-    model.add(Conv2D(32, (3, 3), activation="relu"))
-    model.add(MaxPool2D(pool_size=(2, 2)))
-    model.add(Dropout(0.25))
-    model.add(Conv2D(32, (3, 3), activation="relu"))
-    model.add(Conv2D(32, (3, 3), activation="relu"))
-    model.add(MaxPool2D(2, 2))
-    model.add(Dropout(0.25))
-    model.add(Flatten())
-    model.add(Dense(64, activation="relu"))
-    model.add(Dropout(0.5))
-    model.add(Dense(num_class, activation="softmax"))
-
-    # オプティマイザーと評価指標の設定
-    adam = Adam(learning_rate=1e-3)
-    model.compile(
-        loss="sparse_categorical_crossentropy",
-        optimizer=adam,
-        metrics=["accuracy"],
-    )
-
-    return model
-
-
-def train(args):
-    # 乱数の固定
-    tf.random.set_seed(0)
-
+def main(args):
     # データ読み込み
     with open(glob.glob(f"{args.input_path}/**/train_test_datas.pkl")[0], "br") as f:
-        (X_train, y_train), (X_test, y_test) = pickle.load(f)
+        all_images, all_labels = pickle.load(f)
     with open(glob.glob(f"{args.input_path}/**/labels_idx.pkl")[0], "br") as f:
         label_index = pickle.load(f)
 
-    # data generator の宣言
-    train_datagen = ImageDataGenerator(
-        rotation_range=20,
-        width_shift_range=0.1,
-        height_shift_range=0.1,
-        data_format="channels_last",
+    train(
+        x_train=all_images,
+        y_train=all_labels,
+        label_index=label_index,
+        validation_rate=validation_rate,
+        output_dir=args.output_path,
+        log_dir=args.log_path,
     )
-
-    # コールバックの設定
-    es = EarlyStopping(monitor="val_loss", patience=10)
-    log_dir = f"{args.log_path}"
-    tb = TensorBoard(log_dir=log_dir, histogram_freq=1, write_graph=True)
-    cp = ModelCheckpoint(
-        f"{args.output_path}/params.hdf5",
-        monitor="val_loss",
-        save_best_only=True,
-    )
-
-    # データ
-    train_generator = train_datagen.flow(X_train, y_train, batch_size=32)
-
-    # model をビルド
-    model = build_model(len(label_index))
-
-    # 学習実行
-    model.fit_generator(
-        train_generator,
-        steps_per_epoch=X_train.shape[0] // 32,
-        verbose=2,
-        epochs=100,
-        validation_data=(X_test, y_test),
-        callbacks=[es, tb, cp],
-    )
-
-    # confusion matrixの作成
-    y_pred = np.argmax(model.predict(X_test), axis=-1)
-    cm = confusion_matrix(y_test, y_pred, labels=list(label_index.values()))
-    cm = pd.DataFrame(cm, columns=label_index.keys(), index=label_index.keys())
-    cm.to_csv(f"{args.output_path}/confusion_matrix.csv")
-
-    # confusion matrixの作成
-    y_pred = np.argmax(model.predict(X_test), axis=-1)
-    cm = confusion_matrix(y_test, y_pred, labels=list(label_index.values()))
-    cm = pd.DataFrame(cm, columns=label_index.keys(), index=label_index.keys())
-    cm.to_csv(f"{args.output_path}/confusion_matrix.csv")
-
-    # tensorboard への画像の出力
-    writer = tf.summary.create_file_writer(f"{args.log_path}/images")
-
-    # 各クラスについて間違えた画像のみを10枚ずつ収集してtensorboardで表示する
-    wrong_pictures_idx = [
-        idx for idx in range(len(y_pred)) if y_pred[idx] != y_test[idx]
-    ]
-
-    for image_idx in wrong_pictures_idx[:20]:
-        true_label = [
-            key for key, val in label_index.items() if val == y_test[image_idx]
-        ]
-        predicted_label = [
-            key for key, val in label_index.items() if val == y_pred[image_idx]
-        ]
-        title = f"true {true_label}: predicted {predicted_label}"
-
-        with writer.as_default():
-            tf.summary.image(title, X_test[image_idx : image_idx + 1], step=100, max_outputs=1)
 
 
 if __name__ == "__main__":
@@ -132,4 +37,4 @@ if __name__ == "__main__":
     os.makedirs(args.output_path, exist_ok=True)
     os.makedirs(args.log_path, exist_ok=True)
 
-    train(args)
+    main(args)
